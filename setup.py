@@ -2,4 +2,4 @@
 
 from setuptools import setup
 
-setup(py_modules = ['run_inference', 'util', 'inference/utils.py'])
+setup(py_modules = ['run_inference', 'util'])
