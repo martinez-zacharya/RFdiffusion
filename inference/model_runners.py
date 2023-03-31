@@ -77,18 +77,18 @@ class Sampler:
                     # this is only used for partial diffusion
                     assert conf.diffuser.partial_T is not None, "The provide_seq input is specifically for partial diffusion"
                 if conf.scaffoldguided.scaffoldguided:
-                    self.ckpt_path=f'{SCRIPT_DIR}/../models/InpaintSeq_Fold_ckpt.pt'
+                    self.ckpt_path=f'{SCRIPT_DIR}/../../RFDiffusion_weights/InpaintSeq_Fold_ckpt.pt'
                 else:
-                    self.ckpt_path = f'{SCRIPT_DIR}/../models/InpaintSeq_ckpt.pt'
+                    self.ckpt_path = f'{SCRIPT_DIR}/../../RFDiffusion_weights/InpaintSeq_ckpt.pt'
             elif conf.ppi.hotspot_res is not None and conf.scaffoldguided.scaffoldguided is False:
                 # use complex trained model
-                self.ckpt_path = f'{SCRIPT_DIR}/../models/Complex_base_ckpt.pt'
+                self.ckpt_path = f'{SCRIPT_DIR}/../../RFDiffusion_weights/Complex_base_ckpt.pt'
             elif conf.scaffoldguided.scaffoldguided is True:
                 # use complex and secondary structure-guided model
-                self.ckpt_path = f'{SCRIPT_DIR}/../models/Complex_Fold_base_ckpt.pt'
+                self.ckpt_path = f'{SCRIPT_DIR}/../../RFDiffusion_weights/Complex_Fold_base_ckpt.pt'
             else:
                 # use default model
-                self.ckpt_path = f'{SCRIPT_DIR}/../models/Base_ckpt.pt'
+                self.ckpt_path = f'{SCRIPT_DIR}/../../RFDiffusion_weights/Base_ckpt.pt'
         # for saving in trb file:
         assert self._conf.inference.trb_save_ckpt_path is None, "trb_save_ckpt_path is not the place to specify an input model. Specify in inference.ckpt_override_path"
         self._conf['inference']['trb_save_ckpt_path']=self.ckpt_path
@@ -108,7 +108,6 @@ class Sampler:
 
         # self.initialize_sampler(conf)
         self.initialized=True
-
         # Initialize helper objects
         self.inf_conf = self._conf.inference
         self.contig_conf = self._conf.contigmap
@@ -168,7 +167,7 @@ class Sampler:
         self._log.info(f'Reading checkpoint from {self.ckpt_path}')
         print('This is inf_conf.ckpt_path')
         print(self.ckpt_path)
-        self.ckpt  = torch.load(
+        self.ckpt = torch.load(
             self.ckpt_path, map_location=self.device)
 
     def assemble_config_from_chk(self) -> None:
@@ -231,8 +230,10 @@ class Sampler:
 
     def construct_denoiser(self, L, visible):
         """Make length-specific denoiser."""
-        denoise_kwargs = OmegaConf.to_container(self.diffuser_conf)
-        denoise_kwargs.update(OmegaConf.to_container(self.denoiser_conf))
+        denoise_kwargs = self.diffuser_conf
+        # denoise_kwargs = OmegaConf.to_container(self.diffuser_conf)
+        # denoise_kwargs.update(OmegaConf.to_container(self.denoiser_conf))
+        denoise_kwargs.update(self.denoiser_conf)
         denoise_kwargs.update({
             'L': L,
             'diffuser': self.diffuser,
@@ -264,12 +265,12 @@ class Sampler:
         ################################
 
         # Generate a specific contig from the range of possibilities specified at input
-
+        
         self.contig_map = self.construct_contig(self.target_feats)
         self.mappings = self.contig_map.get_mappings()
         self.mask_seq = torch.from_numpy(self.contig_map.inpaint_seq)[None,:]
         self.mask_str = torch.from_numpy(self.contig_map.inpaint_str)[None,:]
-        self.binderlen =  len(self.contig_map.inpaint)     
+        self.binderlen =  len(self.contig_map.inpaint)    
 
         ####################
         ### Get Hotspots ###

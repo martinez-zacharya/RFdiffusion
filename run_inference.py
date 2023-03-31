@@ -21,6 +21,7 @@ import torch
 from omegaconf import DictConfig, OmegaConf
 import hydra
 import logging
+from pathlib import Path
 from util import writepdb_multi, writepdb
 from inference import utils as iu
 from icecream import ic
@@ -28,6 +29,38 @@ from hydra.core.hydra_config import HydraConfig
 import numpy as np
 import random
 import glob
+import yaml
+
+class dotdict(dict):
+    """
+    A dictionary supporting dot notation.
+    """
+    __getattr__ = dict.get
+    __setattr__ = dict.__setitem__
+    __delattr__ = dict.__delitem__
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for k, v in self.items():
+            if isinstance(v, dict):
+                self[k] = dotdict(v)
+
+    def lookup(self, dotkey):
+        """
+        Lookup value in a nested structure with a single key, e.g. "a.b.c"
+        """
+        path = list(reversed(dotkey.split(".")))
+        v = self
+        while path:
+            key = path.pop()
+            if isinstance(v, dict):
+                v = v[key]
+            elif isinstance(v, list):
+                v = v[int(key)]
+            else:
+                raise KeyError(key)
+        return v
+
 
 
 def make_deterministic(seed=0):
@@ -36,15 +69,19 @@ def make_deterministic(seed=0):
     random.seed(seed)
 
 
-@hydra.main(version_base=None, config_path="config/inference", config_name="base")
-def run_rfdiff(conf: HydraConfig) -> None:
+# @hydra.main(version_base=None, config_path="RFDiffusion/config/inference", config_name="base")
+def run_rfdiff(raw_conf: HydraConfig, args) -> None:
     log = logging.getLogger(__name__)
+    with open(raw_conf, 'r') as f:
+        conf = yaml.safe_load(f)
+    conf = dotdict(conf)
     if conf.inference.deterministic:
         make_deterministic()
 
-    # Initialize sampler and target/contig.
-    sampler = iu.sampler_selector(conf)
 
+    # Initialize sampler and target/contig.
+    conf.inference.num_designs = int(args.num_return_sequences)
+    sampler = iu.sampler_selector(conf)
     # Loop over number of designs to sample.
     design_startnum = sampler.inf_conf.design_startnum
     if sampler.inf_conf.design_startnum == -1:
@@ -59,11 +96,10 @@ def run_rfdiff(conf: HydraConfig) -> None:
             m = m.groups()[0]
             indices.append(int(m))
         design_startnum = max(indices) + 1
-
     for i_des in range(design_startnum, design_startnum + sampler.inf_conf.num_designs):
         if conf.inference.deterministic:
             make_deterministic(i_des)
-
+        
         start_time = time.time()
         out_prefix = f"{sampler.inf_conf.output_prefix}_{i_des}"
         log.info(f"Making design {out_prefix}")
@@ -72,13 +108,12 @@ def run_rfdiff(conf: HydraConfig) -> None:
                 f"(cautious mode) Skipping this design because {out_prefix}.pdb already exists."
             )
             continue
-
+        conf.contigmap.contigs = [args.contigs]
         x_init, seq_init = sampler.sample_init()
         denoised_xyz_stack = []
         px0_xyz_stack = []
         seq_stack = []
         plddt_stack = []
-
         x_t = torch.clone(x_init)
         seq_t = torch.clone(seq_init)
         # Loop over number of reverse diffusion time steps.
@@ -111,7 +146,7 @@ def run_rfdiff(conf: HydraConfig) -> None:
         plddt_stack = torch.stack(plddt_stack)
 
         # Save outputs
-        os.makedirs(os.path.dirname(out_prefix), exist_ok=True)
+        os.makedirs(out_prefix, exist_ok=True)
         final_seq = seq_stack[-1]
 
         # Output glycines, except for motif region
@@ -137,7 +172,7 @@ def run_rfdiff(conf: HydraConfig) -> None:
 
         # run metadata
         trb = dict(
-            config=OmegaConf.to_container(sampler._conf, resolve=True),
+            config=(sampler._conf),
             plddt=plddt_stack.cpu().numpy(),
             device=torch.cuda.get_device_name(torch.cuda.current_device())
             if torch.cuda.is_available()
@@ -147,8 +182,8 @@ def run_rfdiff(conf: HydraConfig) -> None:
         if hasattr(sampler, "contig_map"):
             for key, value in sampler.contig_map.get_mappings().items():
                 trb[key] = value
-        with open(f"{out_prefix}.trb", "wb") as f_out:
-            pickle.dump(trb, f_out)
+        # with open(f"{out_prefix}.trb", "wb") as f_out:
+        #     pickle.dump(trb, f_out)
 
         if sampler.inf_conf.write_trajectory:
             # trajectory pdbs
