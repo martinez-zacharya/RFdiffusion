@@ -61,15 +61,17 @@ class Sampler:
 
         # Assign config to Sampler
         self._conf = conf
+        
 
         ################################
         ### Select Appropriate Model ###
         ################################
 
         # Initialize inference only helper objects to Sampler
-        if conf.inference.ckpt_override_path is not None:
-            self.ckpt_path = conf.inference.ckpt_override_path
-            print("WARNING: You're overriding the checkpoint path from the defaults. Check that the model you're providing can run with the inputs you're providing.")
+        # if (conf.inference.ckpt_override_path != None) or (conf.inference.ckpt_override_path != [None]):
+        if conf.inference.ckpt_override_path != False:
+            self.ckpt_path = f'{SCRIPT_DIR}/../../RFDiffusion_weights/{conf.inference.ckpt_override_path}_ckpt.pt'
+            # print("WARNING: You're overriding the checkpoint path from the defaults. Check that the model you're providing can run with the inputs you're providing.")
         else:
             if conf.contigmap.inpaint_seq is not None or conf.contigmap.provide_seq is not None:
                 # use model trained for inpaint_seq
@@ -92,11 +94,11 @@ class Sampler:
         # for saving in trb file:
         assert self._conf.inference.trb_save_ckpt_path is None, "trb_save_ckpt_path is not the place to specify an input model. Specify in inference.ckpt_override_path"
         self._conf['inference']['trb_save_ckpt_path']=self.ckpt_path
+        print(f'Using model: {self.ckpt_path}')
 
         #######################
         ### Assemble Config ###
         #######################
-
         if needs_model_reload:
             # Load checkpoint, so that we can assemble the config
             self.load_checkpoint()
@@ -150,6 +152,15 @@ class Sampler:
             self.t_step_input = int(self.diffuser_conf.partial_T)
         else:
             self.t_step_input = int(self.diffuser_conf.T)
+
+        if self.diffuser_conf.schedule_type == "linear":
+            schedule = torch.linspace(self.diffuser_conf.b_0, self.diffuser_conf.b_T, self.diffuser_conf.T)
+        alpha_schedule = 1 - schedule
+        alphabar_t_schedule = torch.cumprod(alpha_schedule, dim=0)
+
+        print(
+            f"With this beta schedule ({self.diffuser_conf.schedule_type} schedule, beta_0 = {round(self.diffuser_conf.b_0, 3)}, beta_T = {round(self.diffuser_conf.b_T,3)}), alpha_bar_T = {alphabar_t_schedule[-1]}"
+        )
         
     @property
     def T(self):
@@ -165,8 +176,6 @@ class Sampler:
     def load_checkpoint(self) -> None:
         """Loads RF checkpoint, from which config can be generated."""
         self._log.info(f'Reading checkpoint from {self.ckpt_path}')
-        print('This is inf_conf.ckpt_path')
-        print(self.ckpt_path)
         self.ckpt = torch.load(
             self.ckpt_path, map_location=self.device)
 
@@ -189,12 +198,12 @@ class Sampler:
         overrides = []
         if HydraConfig.initialized():
             overrides = HydraConfig.get().overrides.task
-        print("Assembling -model, -diffuser and -preprocess configs from checkpoint")
+        # print("Assembling -model, -diffuser and -preprocess configs from checkpoint")
 
         for cat in ['model','diffuser','preprocess']:
             for key in self._conf[cat]:
                 try:
-                    print(f"USING MODEL CONFIG: self._conf[{cat}][{key}] = {self.ckpt['config_dict'][cat][key]}")
+                    # print(f"USING MODEL CONFIG: self._conf[{cat}][{key}] = {self.ckpt['config_dict'][cat][key]}")
                     self._conf[cat][key] = self.ckpt['config_dict'][cat][key]
                 except:
                     pass

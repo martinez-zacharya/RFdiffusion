@@ -49,6 +49,7 @@ class ContigMap:
         self.ref_idx = ref_idx
         self.hal_idx = hal_idx
         self.idx_rf = idx_rf
+        # inpaint_seq = inpaint_seq[0]
         self.inpaint_seq = (
             "/".join(inpaint_seq).split("/") if inpaint_seq is not None else None
         )
@@ -312,6 +313,7 @@ class ContigMap:
         function to generate inpaint_str or inpaint_seq masks specific to this contig
         """
         s_mask = np.copy(self.mask_1d)
+        inpaint_s = list(filter(None, inpaint_s))
         inpaint_s_list = []
         for i in inpaint_s:
             if "-" in i:

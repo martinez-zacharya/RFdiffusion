@@ -29,6 +29,7 @@ from hydra.core.hydra_config import HydraConfig
 import numpy as np
 import random
 import glob
+from tqdm import tqdm
 import yaml
 
 class dotdict(dict):
@@ -80,7 +81,16 @@ def run_rfdiff(raw_conf: HydraConfig, args) -> None:
 
 
     # Initialize sampler and target/contig.
+    conf.contigmap.contigs = [args.contigs]
+    # print(f'{conf.contigmap.contigs=}')
     conf.inference.num_designs = int(args.num_return_sequences)
+    conf.inference.input_pdb = args.query
+    conf.inference.ckpt_override_path = args.RFDiffusion_Override
+    if args.Inpaint != None:
+        conf.contigmap.inpaint_seq = [args.Inpaint]
+    else:
+        conf.contigmap.inpaint_seq = args.Inpaint
+    conf.inference.output_prefix = f'{args.name}_output/design'
     sampler = iu.sampler_selector(conf)
     # Loop over number of designs to sample.
     design_startnum = sampler.inf_conf.design_startnum
@@ -96,7 +106,7 @@ def run_rfdiff(raw_conf: HydraConfig, args) -> None:
             m = m.groups()[0]
             indices.append(int(m))
         design_startnum = max(indices) + 1
-    for i_des in range(design_startnum, design_startnum + sampler.inf_conf.num_designs):
+    for i_des in tqdm(range(design_startnum, design_startnum + sampler.inf_conf.num_designs)):
         if conf.inference.deterministic:
             make_deterministic(i_des)
         
@@ -108,7 +118,6 @@ def run_rfdiff(raw_conf: HydraConfig, args) -> None:
                 f"(cautious mode) Skipping this design because {out_prefix}.pdb already exists."
             )
             continue
-        conf.contigmap.contigs = [args.contigs]
         x_init, seq_init = sampler.sample_init()
         denoised_xyz_stack = []
         px0_xyz_stack = []
