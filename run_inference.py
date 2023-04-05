@@ -82,14 +82,17 @@ def run_rfdiff(raw_conf: HydraConfig, args) -> None:
 
     # Initialize sampler and target/contig.
     conf.contigmap.contigs = [args.contigs]
-    # print(f'{conf.contigmap.contigs=}')
     conf.inference.num_designs = int(args.num_return_sequences)
     conf.inference.input_pdb = args.query
     conf.inference.ckpt_override_path = args.RFDiffusion_Override
+    if args.partial_T != None:
+        conf.diffuser_conf.partial_T = args.partial_T
     if args.Inpaint != None:
         conf.contigmap.inpaint_seq = [args.Inpaint]
     else:
         conf.contigmap.inpaint_seq = args.Inpaint
+    if args.partial_diff_fix != None:
+        conf.contigmap.provide_seq = [args.partial_diff_fix]
     conf.inference.output_prefix = f'{args.name}_output/design'
     sampler = iu.sampler_selector(conf)
     # Loop over number of designs to sample.
