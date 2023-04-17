@@ -52,8 +52,8 @@ class Sampler:
         - Assembles Config from model checkpoint and command line overrides
 
         """
-        self._log = logging.getLogger(__name__)
-        if torch.cuda.is_available():
+        self._log = logging.getLogger(__name__)     
+        if conf.GPUs > 0:
             self.device = torch.device('cuda')
         else:
             self.device = torch.device('cpu')

@@ -85,6 +85,7 @@ def run_rfdiff(raw_conf: HydraConfig, args) -> None:
     conf.inference.num_designs = int(args.num_return_sequences)
     conf.inference.input_pdb = args.query
     conf.inference.ckpt_override_path = args.RFDiffusion_Override
+    conf.GPUs = int(args.GPUs)
     if args.partial_T != None:
         conf.diffuser_conf.partial_T = args.partial_T
     if args.Inpaint != None:
@@ -183,12 +184,14 @@ def run_rfdiff(raw_conf: HydraConfig, args) -> None:
         )
 
         # run metadata
+        if conf.GPUs > 0:
+            device = torch.device('cuda')
+        else:
+            device = torch.device('cpu')
         trb = dict(
             config=(sampler._conf),
             plddt=plddt_stack.cpu().numpy(),
-            device=torch.cuda.get_device_name(torch.cuda.current_device())
-            if torch.cuda.is_available()
-            else "CPU",
+            device=device,
             time=time.time() - start_time,
         )
         if hasattr(sampler, "contig_map"):
