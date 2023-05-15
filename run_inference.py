@@ -87,7 +87,7 @@ def run_rfdiff(raw_conf: HydraConfig, args) -> None:
     conf.inference.ckpt_override_path = args.RFDiffusion_Override
     conf.GPUs = int(args.GPUs)
     if args.partial_T != None:
-        conf.diffuser_conf.partial_T = args.partial_T
+        conf.diffuser.partial_T = args.partial_T
     if args.Inpaint != None:
         conf.contigmap.inpaint_seq = [args.Inpaint]
     else:
