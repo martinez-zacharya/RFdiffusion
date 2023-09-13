@@ -94,7 +94,10 @@ def run_rfdiff(raw_conf: HydraConfig, args) -> None:
         conf.contigmap.inpaint_seq = args.Inpaint
     if args.partial_diff_fix != None:
         conf.contigmap.provide_seq = [args.partial_diff_fix]
-    conf.inference.output_prefix = f'{args.name}_output/design'
+
+    
+    
+    conf.inference.output_prefix = os.path.join(args.outdir, f'{args.name}_output/design')
     sampler = iu.sampler_selector(conf)
     # Loop over number of designs to sample.
     design_startnum = sampler.inf_conf.design_startnum
