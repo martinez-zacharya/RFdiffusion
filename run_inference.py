@@ -76,8 +76,8 @@ def run_rfdiff(raw_conf: HydraConfig, args) -> None:
     with open(raw_conf, 'r') as f:
         conf = yaml.safe_load(f)
     conf = dotdict(conf)
-    if conf.inference.deterministic:
-        make_deterministic()
+    # if conf.inference.deterministic:
+    make_deterministic(args.RNG_seed)
 
 
     # Initialize sampler and target/contig.
